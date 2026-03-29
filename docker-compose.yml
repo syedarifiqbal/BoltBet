@@ -1,0 +1,179 @@
+version: '3.8'
+
+services:
+
+  # ── RabbitMQ ──────────────────────────────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - '5672:5672'   # AMQP protocol port
+      - '15672:15672' # Management UI — http://localhost:15672 (guest/guest)
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── OpenResty API Gateway ─────────────────────────────────────────────────────
+  # OpenResty = Nginx + LuaJIT. Required for Lua-based Redis rate limiting,
+  # JWT blacklist checks, and auth result caching at the edge.
+  # Run `make certs` once before first start to generate self-signed TLS certs.
+  openresty:
+    image: openresty/openresty:alpine
+    container_name: openresty
+    ports:
+      - '80:80'     # HTTP — redirects to HTTPS; /health available on HTTP
+      - '443:443'   # HTTPS — all API traffic
+    volumes:
+      - ./nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
+      - ./nginx/lua:/etc/nginx/lua:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+      redis-ephemeral:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-sf', 'http://localhost/health']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ── PostgreSQL Primary (writes) ───────────────────────────────────────────────
+  postgres-primary:
+    image: bitnami/postgresql:latest
+    container_name: postgres-primary
+    ports:
+      - '5434:5432'   # 5432 may be taken by a local Postgres install
+    environment:
+      POSTGRESQL_USERNAME: boltbet
+      POSTGRESQL_PASSWORD: secret
+      POSTGRESQL_DATABASE: boltbet
+      POSTGRESQL_REPLICATION_MODE: master
+      POSTGRESQL_REPLICATION_USER: replicator
+      POSTGRESQL_REPLICATION_PASSWORD: replicator_secret
+      # Allow the replica container to connect for replication
+      POSTGRESQL_POSTGRES_PASSWORD: postgres_admin_secret
+      # scram-sha-256 is the default on PostgreSQL 14+. md5 was removed in PG18.
+      # PgBouncer 1.14+ supports scram-sha-256 natively (AUTH_TYPE=scram-sha-256).
+      POSTGRESQL_PASSWORD_ENCRYPTION: scram-sha-256
+    volumes:
+      - postgres_primary_data:/bitnami/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U boltbet -d boltbet']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── PostgreSQL Replica (reads) ────────────────────────────────────────────────
+  # Streams WAL from primary via pg_basebackup on first start, then
+  # continuously applies incoming WAL records. Always read-only.
+  postgres-replica:
+    image: bitnami/postgresql:latest
+    container_name: postgres-replica
+    ports:
+      - '5433:5432'   # exposed on 5433 — primary holds 5432
+    environment:
+      POSTGRESQL_REPLICATION_MODE: slave
+      POSTGRESQL_REPLICATION_USER: replicator
+      POSTGRESQL_REPLICATION_PASSWORD: replicator_secret
+      POSTGRESQL_MASTER_HOST: postgres-primary
+      POSTGRESQL_MASTER_PORT_NUMBER: 5432
+      POSTGRESQL_PASSWORD: secret
+      POSTGRESQL_POSTGRES_PASSWORD: postgres_admin_secret
+    volumes:
+      - postgres_replica_data:/bitnami/postgresql
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U boltbet']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── PgBouncer (connection pooler — sits in front of the primary) ───────────────
+  # NestJS connects to PgBouncer on 6432 for write operations.
+  # IMPORTANT: pool mode = transaction — required for NestJS/TypeORM.
+  # Session mode breaks because NestJS does not own a dedicated session.
+  # Statement mode breaks multi-statement transactions.
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: pgbouncer
+    ports:
+      - '6432:5432'
+    environment:
+      DB_HOST: postgres-primary
+      DB_PORT: 5432
+      DB_NAME: boltbet
+      DB_USER: boltbet
+      DB_PASSWORD: secret
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 1000
+      DEFAULT_POOL_SIZE: 20
+      MIN_POOL_SIZE: 5
+      RESERVE_POOL_SIZE: 5
+      RESERVE_POOL_TIMEOUT: 3
+      SERVER_RESET_QUERY: DISCARD ALL
+      AUTH_TYPE: scram-sha-256
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+
+  # ── Redis (persistent — idempotency keys, JWT blacklist) ──────────────────────
+  # AOF + RDB hybrid persistence. Data survives container restart.
+  # Used for: blacklist:jti:*, idempotency:*, circuit breaker state.
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - '6379:6379'
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --maxmemory 512mb
+      --maxmemory-policy noeviction
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── Redis Ephemeral (rate limits, odds cache) ─────────────────────────────────
+  # RDB only — data loss on restart is acceptable for rate limit counters
+  # and cached odds. noeviction replaced with allkeys-lru so Redis evicts
+  # old entries before running out of memory rather than returning errors.
+  redis-ephemeral:
+    image: redis:7-alpine
+    container_name: redis-ephemeral
+    ports:
+      - '6380:6379'
+    command: >
+      redis-server
+      --save 300 1
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  rabbitmq_data:
+  postgres_primary_data:
+  postgres_replica_data:
+  redis_data:
