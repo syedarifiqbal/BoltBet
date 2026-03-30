@@ -7,9 +7,12 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Market } from './entities/MarketEntity';
-import { MarketStatus } from './types/MarketTypes';
+import { MarketStatus, MarketResult } from './types/MarketTypes';
 import { CreateMarketDto } from './dto/CreateMarketDto';
 import { MarketResponseDto, MarketListResponseDto } from './dto/MarketResponseDto';
+import { Bet } from '../betting/entities/BetEntity';
+import { BetStatus } from '../betting/types/BettingTypes';
+import { WalletService } from '../wallet/WalletService';
 
 @Injectable()
 export class MarketService {
@@ -18,6 +21,14 @@ export class MarketService {
   constructor(
     @InjectRepository(Market)
     private readonly marketRepo: Repository<Market>,
+
+    // Used during settlement to find and close all ACCEPTED bets on the market.
+    // Imported directly (not via BettingService) to avoid a circular dependency:
+    // BettingModule → MarketModule, so MarketModule cannot also import BettingModule.
+    @InjectRepository(Bet)
+    private readonly betRepo: Repository<Bet>,
+
+    private readonly walletService: WalletService,
   ) {}
 
   async list(
@@ -73,6 +84,10 @@ export class MarketService {
     return market;
   }
 
+  /**
+   * Suspend or reopen a market (OPEN ↔ SUSPENDED).
+   * Cannot be called on a SETTLED market.
+   */
   async updateStatus(marketId: string, status: MarketStatus): Promise<MarketResponseDto> {
     const market = await this.getMarketById(marketId);
     if (market.status === MarketStatus.SETTLED) {
@@ -81,6 +96,77 @@ export class MarketService {
     market.status = status;
     const saved = await this.marketRepo.save(market);
     this.logger.log(`Market ${marketId} status → ${status}`);
+    return this.toDto(saved);
+  }
+
+  /**
+   * Settle a market with a WIN or LOSS result.
+   *
+   * WIN  — The market's outcome occurred (e.g. "Man City won").
+   *        Every ACCEPTED bet is paid out at its stored payoutCents.
+   *
+   * LOSS — The outcome did not occur.
+   *        Every ACCEPTED bet is settled with no payout.
+   *        The stake was already debited from the wallet at bet placement time.
+   *
+   * In both cases the bet status moves to SETTLED via direct repo update
+   * (bypassing BettingService to avoid a circular module dependency — the state
+   * machine logic is trivially correct here: ACCEPTED → SETTLED is always valid).
+   */
+  async settle(marketId: string, result: MarketResult): Promise<MarketResponseDto> {
+    const market = await this.getMarketById(marketId);
+    if (market.status === MarketStatus.SETTLED) {
+      throw new UnprocessableEntityException('Market is already SETTLED');
+    }
+
+    // Find every bet that is live (ACCEPTED) on this market.
+    const acceptedBets = await this.betRepo.find({
+      where: { marketId, status: BetStatus.ACCEPTED },
+    });
+
+    this.logger.log(
+      `Settling market ${marketId} as ${result} — ${acceptedBets.length} accepted bet(s) to process`,
+    );
+
+    // Process each bet. Errors in individual bets are logged but don't abort
+    // the others — each credit/settle is idempotent so a retry is safe.
+    for (const bet of acceptedBets) {
+      try {
+        if (result === MarketResult.WIN) {
+          // Credit the payout. referenceId = bet.id ensures idempotency —
+          // if this crashes and is retried, WalletService.credit() will return
+          // the existing transaction without double-crediting.
+          await this.walletService.credit(
+            bet.userId,
+            bet.payoutCents,
+            bet.id,
+            `Payout for winning bet on market "${market.name}"`,
+          );
+        }
+
+        // Transition ACCEPTED → SETTLED directly. We intentionally bypass
+        // BettingService.transitionStatus() to avoid a circular dependency.
+        // ACCEPTED → SETTLED is always valid per the state machine.
+        await this.betRepo.update({ id: bet.id }, { status: BetStatus.SETTLED });
+
+        this.logger.log(
+          `Bet ${bet.id} settled (${result}) — user ${bet.userId}` +
+          (result === MarketResult.WIN ? `, payout ${bet.payoutCents}c` : ', no payout'),
+        );
+      } catch (err) {
+        this.logger.error(
+          `Failed to settle bet ${bet.id}: ${(err as Error).message}`,
+          (err as Error).stack,
+        );
+        // Continue processing the remaining bets.
+      }
+    }
+
+    // Mark the market as SETTLED — terminal, cannot be re-opened.
+    market.status = MarketStatus.SETTLED;
+    const saved = await this.marketRepo.save(market);
+    this.logger.log(`Market ${marketId} marked SETTLED (result: ${result})`);
+
     return this.toDto(saved);
   }
 

@@ -1,6 +1,7 @@
 import { apiClient } from './client';
 
 export type MarketStatus = 'OPEN' | 'SUSPENDED' | 'SETTLED';
+export type MarketResult = 'WIN' | 'LOSS';
 
 export interface MarketResponse {
   id:        string;
@@ -41,8 +42,8 @@ export const marketsApi = {
   suspend: (id: string) =>
     apiClient.patch<MarketResponse>(`/v1/markets/${id}/suspend`),
 
-  settle: (id: string) =>
-    apiClient.patch<MarketResponse>(`/v1/markets/${id}/settle`),
+  settle: (id: string, result: MarketResult) =>
+    apiClient.patch<MarketResponse>(`/v1/markets/${id}/settle`, { result }),
 
   reopen: (id: string) =>
     apiClient.patch<MarketResponse>(`/v1/markets/${id}/reopen`),

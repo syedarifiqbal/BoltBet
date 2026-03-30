@@ -25,6 +25,7 @@ import {
 } from '@nestjs/swagger';
 import { MarketService } from './MarketService';
 import { CreateMarketDto } from './dto/CreateMarketDto';
+import { SettleMarketDto } from './dto/SettleMarketDto';
 import { MarketResponseDto, MarketListResponseDto } from './dto/MarketResponseDto';
 import { MarketStatus } from './types/MarketTypes';
 import { Roles } from '../auth/decorators/RolesDecorator';
@@ -85,12 +86,21 @@ export class MarketController {
 
   @Patch(':id/settle')
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Settle market — terminal state (ADMIN only)' })
+  @ApiOperation({
+    summary: 'Settle market (ADMIN only)',
+    description:
+      'Marks the market as SETTLED and processes all ACCEPTED bets. ' +
+      'WIN — pays out payoutCents to every bettor. ' +
+      'LOSS — settles all bets with no payout (stake was already debited at placement).',
+  })
   @ApiOkResponse({ type: MarketResponseDto })
   @ApiUnprocessableEntityResponse({ description: 'Market is already SETTLED' })
   @ApiForbiddenResponse({ description: 'Requires ADMIN role' })
-  settle(@Param('id', ParseUUIDPipe) id: string): Promise<MarketResponseDto> {
-    return this.marketService.updateStatus(id, MarketStatus.SETTLED);
+  settle(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SettleMarketDto,
+  ): Promise<MarketResponseDto> {
+    return this.marketService.settle(id, dto.result);
   }
 
   @Patch(':id/reopen')
