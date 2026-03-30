@@ -13,11 +13,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { generateMutationId } from '@/lib/utils';
 
 export default function NewMarketPage() {
-  const router     = useRouter();
-  const { toast }  = useToast();
+  const router    = useRouter();
+  const { toast } = useToast();
 
-  const [eventId, setEventId]   = useState('');
-  const [name, setName]         = useState('');
+  const [eventId, setEventId]     = useState(() => generateMutationId());
+  const [name, setName]           = useState('');
   const [oddsInput, setOddsInput] = useState('');
 
   const createMutation = useMutation({
@@ -41,12 +41,10 @@ export default function NewMarketPage() {
       return;
     }
 
-    const oddsInt = Math.round(oddsFloat * 100);
-
     createMutation.mutate({
       eventId: eventId.trim(),
       name:    name.trim(),
-      oddsInt,
+      oddsInt: Math.round(oddsFloat * 100),
     });
   }
 
@@ -64,17 +62,30 @@ export default function NewMarketPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="eventId">Event ID (UUID)</Label>
-              <Input
-                id="eventId"
-                placeholder={generateMutationId()}
-                value={eventId}
-                onChange={(e) => setEventId(e.target.value)}
-                required
-                pattern="[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
-                title="Must be a valid UUID v4"
-              />
-              <p className="text-xs text-muted-foreground">UUID v4 identifying the sports event.</p>
+              <Label htmlFor="eventId">Event ID</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="eventId"
+                  value={eventId}
+                  onChange={(e) => setEventId(e.target.value)}
+                  className="font-mono text-xs"
+                  required
+                  pattern="[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
+                  title="Must be a valid UUID v4"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEventId(generateMutationId())}
+                  title="Generate new event ID"
+                >
+                  New
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Auto-generated for a new event. To add a second market to an existing event, paste
+                its Event ID here.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -86,7 +97,7 @@ export default function NewMarketPage() {
                 onChange={(e) => setName(e.target.value)}
                 required
                 minLength={3}
-                maxLength={200}
+                maxLength={255}
               />
             </div>
 
@@ -103,7 +114,7 @@ export default function NewMarketPage() {
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Decimal odds (e.g. 2.40). Stored as integer × 100 internally.
+                Decimal odds (e.g. 2.40 → stored as 240 internally).
               </p>
             </div>
 
