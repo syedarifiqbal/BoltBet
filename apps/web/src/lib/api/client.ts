@@ -70,8 +70,16 @@ async function request<T>(url: string, options: RequestOptions = {}): Promise<T>
     throw new ApiError(response.status, body.message ?? `Request failed: ${response.status}`);
   }
 
-  // 204 No Content — return empty object
-  if (response.status === 204) return {} as T;
+  // No body responses (204 No Content, or 201/200 with empty body)
+  const contentLength = response.headers.get('content-length');
+  const contentType   = response.headers.get('content-type') ?? '';
+  if (
+    response.status === 204 ||
+    contentLength === '0' ||
+    !contentType.includes('application/json')
+  ) {
+    return {} as T;
+  }
 
   return response.json() as Promise<T>;
 }

@@ -33,13 +33,9 @@ export function useAuth() {
   const register = useCallback(
     async (email: string, password: string) => {
       await authApi.register({ email, password });
-      // Auto-login after registration
-      const { accessToken } = await authApi.login({ email, password });
-      const user = decodeToken(accessToken);
-      dispatch(setCredentials({ accessToken, user }));
-      router.push('/dashboard');
+      // Registration only — user must log in explicitly
     },
-    [dispatch, router],
+    [],
   );
 
   const logout = useCallback(async () => {

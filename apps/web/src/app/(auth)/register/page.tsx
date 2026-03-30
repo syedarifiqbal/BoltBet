@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/context/ToastContext';
 import { Button } from '@/components/ui/Button';
@@ -12,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 export default function RegisterPage() {
   const { register } = useAuth();
   const { toast }    = useToast();
+  const router       = useRouter();
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm]   = useState('');
@@ -30,6 +32,8 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await register(email, password);
+      toast.success('Account created! Please sign in.');
+      router.push('/login');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Registration failed.';
       toast.error(message);
