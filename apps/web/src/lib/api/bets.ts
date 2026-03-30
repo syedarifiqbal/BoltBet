@@ -23,7 +23,6 @@ export interface BetListResponse {
 
 export interface PlaceBetPayload {
   marketId:         string;
-  oddsInt:          number;
   stakeCents:       number;
   clientMutationId: string;
 }

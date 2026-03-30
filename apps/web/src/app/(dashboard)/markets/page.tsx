@@ -40,7 +40,7 @@ export default function MarketsPage() {
     },
   });
 
-  async function handlePlace(marketId: string, oddsInt: number) {
+  async function handlePlace(marketId: string) {
     const dollars = parseFloat(stakeInput[marketId] ?? '');
     if (isNaN(dollars) || dollars <= 0) {
       toast.error('Enter a valid stake amount.');
@@ -54,7 +54,6 @@ export default function MarketsPage() {
     setPlacingFor(marketId);
     await betMutation.mutateAsync({
       marketId,
-      oddsInt,
       stakeCents,
       clientMutationId: generateMutationId(),
     });
@@ -108,7 +107,7 @@ export default function MarketsPage() {
                     <Button
                       size="sm"
                       disabled={placingFor === market.id}
-                      onClick={() => handlePlace(market.id, market.oddsInt)}
+                      onClick={() => handlePlace(market.id)}
                     >
                       {placingFor === market.id ? '…' : 'Bet'}
                     </Button>
