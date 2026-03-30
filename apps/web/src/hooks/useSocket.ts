@@ -21,6 +21,12 @@ interface MarketUpdatedEvent {
   oddsInt:  number;
 }
 
+interface MarketCreatedEvent {
+  marketId: string;
+  name:     string;
+  oddsInt:  number;
+}
+
 const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
 /**
@@ -89,10 +95,16 @@ export function useSocket(): void {
 
     // ── market:updated ─────────────────────────────────────────────────────
     // Broadcast to ALL clients — fired when admin suspends, reopens, or settles a market.
-    // Invalidate the markets cache so the /markets page refetches and hides/shows
-    // bet inputs based on the new status.
     socket.on('market:updated', (_payload: MarketUpdatedEvent) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.markets.list() });
+    });
+
+    // ── market:created ─────────────────────────────────────────────────────
+    // Broadcast to ALL clients — fired when admin creates a new market.
+    // New card appears immediately; toast lets users know to bet early.
+    socket.on('market:created', (payload: MarketCreatedEvent) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.markets.list() });
+      toast.info(`New market available: "${payload.name}"`);
     });
 
     socketRef.current = socket;

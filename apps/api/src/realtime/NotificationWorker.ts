@@ -18,6 +18,12 @@ export type NotificationPayload =
       name:     string;
       status:   string;
       oddsInt:  number;
+    }
+  | {
+      type:     'MARKET_CREATED';
+      marketId: string;
+      name:     string;
+      oddsInt:  number;
     };
 
 /**
@@ -72,6 +78,12 @@ export class NotificationWorker implements OnModuleInit, OnModuleDestroy {
           marketId: payload.marketId,
           name:     payload.name,
           status:   payload.status,
+          oddsInt:  payload.oddsInt,
+        });
+      } else if (payload.type === 'MARKET_CREATED') {
+        this.realtimeGateway.pushMarketCreated({
+          marketId: payload.marketId,
+          name:     payload.name,
           oddsInt:  payload.oddsInt,
         });
       } else {

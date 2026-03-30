@@ -26,6 +26,12 @@ export interface MarketUpdatedPayload {
   oddsInt:  number;
 }
 
+export interface MarketCreatedPayload {
+  marketId: string;
+  name:     string;
+  oddsInt:  number;
+}
+
 /**
  * RealtimeGateway — Socket.io WebSocket server.
  *
@@ -117,6 +123,15 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     this.logger.log(
       `Pushed bet:settled to user ${userId} — bet ${payload.betId} (${payload.result})`,
     );
+  }
+
+  /**
+   * Broadcast a new market to ALL connected clients.
+   * Called by NotificationWorker when an admin creates a market.
+   */
+  pushMarketCreated(payload: MarketCreatedPayload): void {
+    this.server.emit('market:created', payload);
+    this.logger.log(`Broadcast market:created — market ${payload.marketId} "${payload.name}"`);
   }
 
   /**
