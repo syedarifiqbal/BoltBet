@@ -2,7 +2,9 @@ import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import * as cookieParser from 'cookie-parser';
-import { IoAdapter } from '@nestjs/platform-socket.io';
+import { ConfigType } from '@nestjs/config';
+import { redisConfig } from './config';
+import { RedisIoAdapter } from './realtime/RedisIoAdapter';
 import { AppModule } from './AppModule';
 
 async function bootstrap() {
@@ -13,8 +15,13 @@ async function bootstrap() {
   // potentially leaving in-flight RabbitMQ messages unacknowledged.
   app.enableShutdownHooks();
 
-  // Socket.io adapter — enables WebSocket support on the same HTTP server.
-  app.useWebSocketAdapter(new IoAdapter(app));
+  // Redis-backed Socket.io adapter — routes all server.emit() calls through
+  // Redis Pub/Sub so every server instance broadcasts to its own connected clients.
+  // This makes broadcasts correct across multiple instances behind a load balancer.
+  const config = app.get<ConfigType<typeof redisConfig>>(redisConfig.KEY);
+  const redisIoAdapter = new RedisIoAdapter(app);
+  await redisIoAdapter.connectToRedis(config.ephemeralUrl);
+  app.useWebSocketAdapter(redisIoAdapter);
 
   // ── Swagger ──────────────────────────────────────────────────────────────
   // Available at /api in development only. Never expose in production.
