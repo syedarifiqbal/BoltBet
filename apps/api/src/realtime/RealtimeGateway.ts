@@ -19,6 +19,13 @@ export interface BetSettledPayload {
   payoutCents: number;
 }
 
+export interface MarketUpdatedPayload {
+  marketId: string;
+  name:     string;
+  status:   string;
+  oddsInt:  number;
+}
+
 /**
  * RealtimeGateway — Socket.io WebSocket server.
  *
@@ -109,6 +116,18 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     this.server.to(`user:${userId}`).emit('bet:settled', payload);
     this.logger.log(
       `Pushed bet:settled to user ${userId} — bet ${payload.betId} (${payload.result})`,
+    );
+  }
+
+  /**
+   * Broadcast a market status change to ALL connected clients.
+   * Called by NotificationWorker when a market is suspended, reopened, or settled.
+   * Every user on the /markets page will receive this and refetch.
+   */
+  pushMarketUpdated(payload: MarketUpdatedPayload): void {
+    this.server.emit('market:updated', payload);
+    this.logger.log(
+      `Broadcast market:updated — market ${payload.marketId} → ${payload.status}`,
     );
   }
 }

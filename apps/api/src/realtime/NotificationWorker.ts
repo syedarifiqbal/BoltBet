@@ -3,14 +3,22 @@ import { ChannelWrapper } from 'amqp-connection-manager';
 import { RabbitMQService } from '../rabbitmq/RabbitmqService';
 import { RealtimeGateway } from './RealtimeGateway';
 
-export interface NotificationPayload {
-  type:        'BET_SETTLED';
-  userId:      string;
-  betId:       string;
-  marketName:  string;
-  result:      'WIN' | 'LOSS';
-  payoutCents: number;
-}
+export type NotificationPayload =
+  | {
+      type:        'BET_SETTLED';
+      userId:      string;
+      betId:       string;
+      marketName:  string;
+      result:      'WIN' | 'LOSS';
+      payoutCents: number;
+    }
+  | {
+      type:     'MARKET_UPDATED';
+      marketId: string;
+      name:     string;
+      status:   string;
+      oddsInt:  number;
+    };
 
 /**
  * NotificationWorker — consumes the `notifications` queue and pushes
@@ -58,6 +66,13 @@ export class NotificationWorker implements OnModuleInit, OnModuleDestroy {
           marketName:  payload.marketName,
           result:      payload.result,
           payoutCents: payload.payoutCents,
+        });
+      } else if (payload.type === 'MARKET_UPDATED') {
+        this.realtimeGateway.pushMarketUpdated({
+          marketId: payload.marketId,
+          name:     payload.name,
+          status:   payload.status,
+          oddsInt:  payload.oddsInt,
         });
       } else {
         this.logger.warn(`Unknown notification type: ${(payload as NotificationPayload).type}`);

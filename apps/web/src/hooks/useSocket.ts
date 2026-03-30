@@ -14,6 +14,13 @@ interface BetSettledEvent {
   payoutCents: number;
 }
 
+interface MarketUpdatedEvent {
+  marketId: string;
+  name:     string;
+  status:   string;
+  oddsInt:  number;
+}
+
 const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
 /**
@@ -65,21 +72,27 @@ export function useSocket(): void {
     });
 
     // ── bet:settled ────────────────────────────────────────────────────────
-    // Fired by the server when a market this user had a bet on is settled.
+    // Targeted to this user only — fired when a market they bet on is settled.
     socket.on('bet:settled', (payload: BetSettledEvent) => {
       if (payload.result === 'WIN') {
         toast.success(
           `You won! "${payload.marketName}" settled. Payout: ${formatCents(payload.payoutCents)}`,
         );
       } else {
-        toast.info(
-          `"${payload.marketName}" settled. Better luck next time.`,
-        );
+        toast.warning(`"${payload.marketName}" settled. Better luck next time.`);
       }
 
       // Refresh wallet balance and bets list so the UI reflects the new state.
       queryClient.invalidateQueries({ queryKey: queryKeys.wallet.balance() });
       queryClient.invalidateQueries({ queryKey: queryKeys.bets.list(1) });
+    });
+
+    // ── market:updated ─────────────────────────────────────────────────────
+    // Broadcast to ALL clients — fired when admin suspends, reopens, or settles a market.
+    // Invalidate the markets cache so the /markets page refetches and hides/shows
+    // bet inputs based on the new status.
+    socket.on('market:updated', (_payload: MarketUpdatedEvent) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.markets.list() });
     });
 
     socketRef.current = socket;

@@ -98,6 +98,15 @@ export class MarketService {
     market.status = status;
     const saved = await this.marketRepo.save(market);
     this.logger.log(`Market ${marketId} status → ${status}`);
+
+    await this.rabbitMQService.publishNotification({
+      type:     'MARKET_UPDATED',
+      marketId: saved.id,
+      name:     saved.name,
+      status:   saved.status,
+      oddsInt:  saved.oddsInt,
+    });
+
     return this.toDto(saved);
   }
 
@@ -180,6 +189,14 @@ export class MarketService {
     market.status = MarketStatus.SETTLED;
     const saved = await this.marketRepo.save(market);
     this.logger.log(`Market ${marketId} marked SETTLED (result: ${result})`);
+
+    await this.rabbitMQService.publishNotification({
+      type:     'MARKET_UPDATED',
+      marketId: saved.id,
+      name:     saved.name,
+      status:   saved.status,
+      oddsInt:  saved.oddsInt,
+    });
 
     return this.toDto(saved);
   }
