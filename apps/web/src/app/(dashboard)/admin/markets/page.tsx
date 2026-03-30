@@ -1,30 +1,34 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
-import { marketsApi, type MarketResponse } from '@/lib/api/markets';
+import { marketsApi, type MarketResponse, type MarketResult } from '@/lib/api/markets';
 import { queryKeys, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/context/ToastContext';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { formatOdds } from '@/lib/utils';
 
-type Action = 'suspend' | 'settle' | 'reopen';
+type NonSettleAction = 'suspend' | 'reopen';
 
-const ACTION_LABELS: Record<Action, string> = {
+// Which market is currently waiting for a WIN/LOSS confirmation
+type SettleConfirmState = { marketId: string; marketName: string } | null;
+
+const ACTION_LABELS: Record<NonSettleAction, string> = {
   suspend: 'Suspend',
-  settle:  'Settle',
   reopen:  'Reopen',
 };
 
-function statusActions(status: MarketResponse['status']): Action[] {
-  if (status === 'OPEN')      return ['suspend', 'settle'];
-  if (status === 'SUSPENDED') return ['reopen', 'settle'];
+function nonSettleActions(status: MarketResponse['status']): NonSettleAction[] {
+  if (status === 'OPEN')      return ['suspend'];
+  if (status === 'SUSPENDED') return ['reopen'];
   return [];
 }
 
 export default function AdminMarketsPage() {
   const { toast } = useToast();
+  const [settleConfirm, setSettleConfirm] = useState<SettleConfirmState>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: [...queryKeys.markets.list(), 'admin'],
@@ -32,18 +36,30 @@ export default function AdminMarketsPage() {
   });
 
   const actionMutation = useMutation({
-    mutationFn: ({ id, action }: { id: string; action: Action }) =>
+    mutationFn: ({ id, action }: { id: string; action: NonSettleAction }) =>
       marketsApi[action](id),
     onSuccess: (_, { action }) => {
       toast.success(`Market ${ACTION_LABELS[action].toLowerCase()}d.`);
       queryClient.invalidateQueries({ queryKey: queryKeys.markets.list() });
     },
+    onError: () => toast.error('Action failed. Please try again.'),
+  });
+
+  const settleMutation = useMutation({
+    mutationFn: ({ id, result }: { id: string; result: MarketResult }) =>
+      marketsApi.settle(id, result),
+    onSuccess: (_, { result }) => {
+      toast.success(`Market settled as ${result}.`);
+      queryClient.invalidateQueries({ queryKey: queryKeys.markets.list() });
+      setSettleConfirm(null);
+    },
     onError: () => {
-      toast.error('Action failed. Please try again.');
+      toast.error('Settlement failed. Please try again.');
+      setSettleConfirm(null);
     },
   });
 
-  const isPending = actionMutation.isPending;
+  const isPending = actionMutation.isPending || settleMutation.isPending;
 
   return (
     <div className="space-y-6">
@@ -75,7 +91,10 @@ export default function AdminMarketsPage() {
             </thead>
             <tbody>
               {data.markets.map((market) => {
-                const actions = statusActions(market.status);
+                const actions   = nonSettleActions(market.status);
+                const canSettle = market.status === 'OPEN' || market.status === 'SUSPENDED';
+                const isConfirmingThisRow = settleConfirm?.marketId === market.id;
+
                 return (
                   <tr key={market.id} className="border-b last:border-0 hover:bg-muted/30">
                     <td className="px-4 py-3">
@@ -98,18 +117,71 @@ export default function AdminMarketsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">
+                        {/* Suspend / Reopen */}
                         {actions.map((action) => (
                           <Button
                             key={action}
                             size="sm"
-                            variant={action === 'settle' ? 'default' : 'outline'}
+                            variant="outline"
                             disabled={isPending}
                             onClick={() => actionMutation.mutate({ id: market.id, action })}
                           >
                             {ACTION_LABELS[action]}
                           </Button>
                         ))}
-                        {actions.length === 0 && (
+
+                        {/* Settle — asks for WIN or LOSS */}
+                        {canSettle && !isConfirmingThisRow && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            disabled={isPending}
+                            onClick={() =>
+                              setSettleConfirm({ marketId: market.id, marketName: market.name })
+                            }
+                          >
+                            Settle
+                          </Button>
+                        )}
+
+                        {/* WIN / LOSS confirmation inline */}
+                        {isConfirmingThisRow && (
+                          <>
+                            <span className="self-center text-xs text-muted-foreground">
+                              Result:
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              disabled={isPending}
+                              onClick={() =>
+                                settleMutation.mutate({ id: market.id, result: 'WIN' })
+                              }
+                            >
+                              Win
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={isPending}
+                              onClick={() =>
+                                settleMutation.mutate({ id: market.id, result: 'LOSS' })
+                              }
+                            >
+                              Loss
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={isPending}
+                              onClick={() => setSettleConfirm(null)}
+                            >
+                              Cancel
+                            </Button>
+                          </>
+                        )}
+
+                        {market.status === 'SETTLED' && (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </div>
