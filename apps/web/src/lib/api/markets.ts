@@ -26,8 +26,11 @@ export interface CreateMarketPayload {
 }
 
 export const marketsApi = {
-  list: ({ page = 1, limit = 20 }: { page?: number; limit?: number } = {}) =>
-    apiClient.get<MarketListResponse>(`/v1/markets?page=${page}&limit=${limit}&status=OPEN`),
+  list: ({ page = 1, limit = 20, status }: { page?: number; limit?: number; status?: string } = {}) => {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (status) params.set('status', status);
+    return apiClient.get<MarketListResponse>(`/v1/markets?${params.toString()}`);
+  },
 
   getById: (id: string) =>
     apiClient.get<MarketResponse>(`/v1/markets/${id}`),
