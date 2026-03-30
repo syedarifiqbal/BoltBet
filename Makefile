@@ -1,4 +1,4 @@
-.PHONY: up down down-v restart logs ps certs gateway-reload
+.PHONY: up down down-v restart logs ps certs gateway-reload keys
 
 # Start all infrastructure
 up:
@@ -35,3 +35,8 @@ certs:
 # Reload Nginx config without downtime (after nginx.conf edits)
 gateway-reload:
 	docker compose exec openresty openresty -s reload
+
+# Generate RS256 key pair + password pepper for .env
+# Prints env var lines — paste them into your .env file
+keys:
+	./scripts/gen-keys.sh

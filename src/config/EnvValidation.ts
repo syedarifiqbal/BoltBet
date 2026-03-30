@@ -32,17 +32,18 @@ export const validationSchema = Joi.object({
   REDIS_EPHEMERAL_URL: Joi.string().uri({ scheme: ['redis', 'rediss'] }).required(),
 
   // ── JWT / Auth (Phase 2) ───────────────────────────────────────────────────
-  // Using RSA key files — paths are validated if provided.
-  // In production, mount these as Docker secrets and set the paths.
-  JWT_PRIVATE_KEY: Joi.string().optional(),
-  JWT_PUBLIC_KEY: Joi.string().optional(),
-  JWT_ACCESS_TTL: Joi.number().default(900),        // 15 minutes
-  JWT_REFRESH_TTL: Joi.number().default(604800),     // 7 days
+  // RS256 asymmetric keys. Generate with: make keys
+  // Store as single-line env vars with literal \n for newlines.
+  JWT_PRIVATE_KEY: Joi.string().required(),
+  JWT_PUBLIC_KEY:  Joi.string().required(),
+  JWT_ACCESS_TTL:  Joi.number().default(900),        // seconds — 15 minutes
+  JWT_REFRESH_TTL: Joi.number().default(604800),     // seconds — 7 days
 
   // ── Password security (Phase 2) ────────────────────────────────────────────
-  PASSWORD_PEPPER: Joi.string().min(32).optional(),
-  TOTP_ENCRYPTION_KEY: Joi.string().length(32).optional(),
-  HIBP_API_KEY: Joi.string().optional(),
+  // Generate with: openssl rand -hex 32
+  PASSWORD_PEPPER:     Joi.string().min(32).required(),
+  TOTP_ENCRYPTION_KEY: Joi.string().length(32).optional(), // Phase 2 MFA
+  HIBP_API_KEY:        Joi.string().optional(),            // optional — checks skipped if absent
 });
 
 export const validationOptions = {
