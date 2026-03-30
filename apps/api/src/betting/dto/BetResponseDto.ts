@@ -8,6 +8,9 @@ export class BetResponseDto {
   @ApiProperty({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
   marketId: string;
 
+  @ApiProperty({ example: 'Man City vs Arsenal — Match Winner' })
+  marketName: string;
+
   @ApiProperty({ example: 240, description: 'Decimal odds × 100. 2.40 → 240' })
   oddsInt: number;
 

@@ -47,7 +47,7 @@ export default function BetsPage() {
                   className="flex items-center justify-between py-3 hover:bg-muted/50 px-2 rounded transition-colors"
                 >
                   <div className="space-y-0.5">
-                    <p className="text-sm font-medium">{bet.marketId}</p>
+                    <p className="text-sm font-medium">{bet.marketName}</p>
                     <p className="text-xs text-muted-foreground">
                       Stake: {formatCents(bet.stakeCents)} · Odds: {formatOdds(bet.oddsInt)}
                     </p>
