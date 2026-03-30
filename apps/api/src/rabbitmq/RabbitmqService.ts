@@ -147,6 +147,45 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /**
+   * Creates a dedicated consumer channel for the notifications queue.
+   * Called by NotificationWorker during onModuleInit.
+   */
+  createNotificationsConsumer(
+    handler: (payload: unknown, ack: () => void, nack: (requeue: boolean) => void) => Promise<void>,
+  ): ChannelWrapper {
+    return this.connection.createChannel({
+      json: true,
+      setup: async (ch: ConfirmChannel) => {
+        await ch.assertExchange(NOTIFICATIONS_DLX, 'direct', { durable: true });
+        await ch.assertQueue(NOTIFICATIONS_DL_QUEUE, { durable: true });
+        await ch.bindQueue(NOTIFICATIONS_DL_QUEUE, NOTIFICATIONS_DLX, NOTIFICATIONS_QUEUE);
+        await ch.assertQueue(NOTIFICATIONS_QUEUE, {
+          durable: true,
+          arguments: {
+            'x-dead-letter-exchange':    NOTIFICATIONS_DLX,
+            'x-dead-letter-routing-key': NOTIFICATIONS_QUEUE,
+          },
+        });
+
+        // Notifications are lightweight (just a push) — prefetch(5) is safe.
+        await ch.prefetch(5);
+
+        await ch.consume(NOTIFICATIONS_QUEUE, (msg: ConsumeMessage | null) => {
+          if (!msg) return;
+          const payload = JSON.parse(msg.content.toString()) as unknown;
+          handler(
+            payload,
+            () => ch.ack(msg),
+            (requeue: boolean) => ch.nack(msg, false, requeue),
+          ).catch(() => {
+            ch.nack(msg, false, false);
+          });
+        });
+      },
+    });
+  }
+
   async onModuleDestroy(): Promise<void> {
     await this.consumerChannel.close();
     await this.publisherChannel.close();

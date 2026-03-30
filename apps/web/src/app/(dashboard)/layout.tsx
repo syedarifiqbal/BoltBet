@@ -5,11 +5,16 @@ import { useRouter } from 'next/navigation';
 import { useAppSelector } from '@/store';
 import { Navbar } from '@/components/layout/Navbar';
 import { Sidebar } from '@/components/layout/Sidebar';
+import { useSocket } from '@/hooks/useSocket';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router          = useRouter();
   const isRefreshing    = useAppSelector((s) => s.auth.isRefreshing);
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
+
+  // Opens a WebSocket connection and listens for bet:settled events.
+  // Automatically reconnects if the token changes, disconnects on logout.
+  useSocket();
 
   useEffect(() => {
     if (!isRefreshing && !isAuthenticated) {
