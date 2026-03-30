@@ -13,6 +13,7 @@ import { MarketResponseDto, MarketListResponseDto } from './dto/MarketResponseDt
 import { Bet } from '../betting/entities/BetEntity';
 import { BetStatus } from '../betting/types/BettingTypes';
 import { WalletService } from '../wallet/WalletService';
+import { RabbitMQService } from '../rabbitmq/RabbitmqService';
 
 @Injectable()
 export class MarketService {
@@ -29,6 +30,7 @@ export class MarketService {
     private readonly betRepo: Repository<Bet>,
 
     private readonly walletService: WalletService,
+    private readonly rabbitMQService: RabbitMQService,
   ) {}
 
   async list(
@@ -148,6 +150,18 @@ export class MarketService {
         // BettingService.transitionStatus() to avoid a circular dependency.
         // ACCEPTED → SETTLED is always valid per the state machine.
         await this.betRepo.update({ id: bet.id }, { status: BetStatus.SETTLED });
+
+        // Publish notification — NotificationWorker will push this to the user's
+        // WebSocket room in real time. Fire-and-forget: a notification failure
+        // must not roll back the financial settlement.
+        await this.rabbitMQService.publishNotification({
+          type:        'BET_SETTLED',
+          userId:      bet.userId,
+          betId:       bet.id,
+          marketName:  market.name,
+          result,
+          payoutCents: result === MarketResult.WIN ? bet.payoutCents : 0,
+        });
 
         this.logger.log(
           `Bet ${bet.id} settled (${result}) — user ${bet.userId}` +

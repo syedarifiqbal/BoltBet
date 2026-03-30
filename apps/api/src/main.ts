@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import * as cookieParser from 'cookie-parser';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AppModule } from './AppModule';
 
 async function bootstrap() {
@@ -11,6 +12,9 @@ async function bootstrap() {
   // when SIGTERM is received. Without this, the process exits immediately,
   // potentially leaving in-flight RabbitMQ messages unacknowledged.
   app.enableShutdownHooks();
+
+  // Socket.io adapter — enables WebSocket support on the same HTTP server.
+  app.useWebSocketAdapter(new IoAdapter(app));
 
   // ── Swagger ──────────────────────────────────────────────────────────────
   // Available at /api in development only. Never expose in production.

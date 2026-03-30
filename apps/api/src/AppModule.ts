@@ -21,6 +21,7 @@ import { WalletModule } from './wallet/WalletModule';
 import { MarketModule } from './market/MarketModule';
 import { BettingModule } from './betting/BettingModule';
 import { SettlementModule } from './settlement/SettlementModule';
+import { RealtimeModule } from './realtime/RealtimeModule';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { SettlementModule } from './settlement/SettlementModule';
     MarketModule,
     BettingModule,
     SettlementModule,
+    RealtimeModule,
   ],
   controllers: [AppController],
   providers: [AppService],
