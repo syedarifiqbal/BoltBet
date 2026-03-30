@@ -67,6 +67,14 @@ export class MarketService {
     });
     const saved = await this.marketRepo.save(market);
     this.logger.log(`Market created: ${saved.id} (event ${saved.eventId})`);
+
+    await this.rabbitMQService.publishNotification({
+      type:     'MARKET_CREATED',
+      marketId: saved.id,
+      name:     saved.name,
+      oddsInt:  saved.oddsInt,
+    });
+
     return this.toDto(saved);
   }
 
