@@ -132,7 +132,7 @@ export class BettingService {
       take:   limit,
     });
     return {
-      data:  rows.map((b) => this.toDto(b)),
+      bets:  rows.map((b) => this.toDto(b)),
       total,
       page,
       limit,

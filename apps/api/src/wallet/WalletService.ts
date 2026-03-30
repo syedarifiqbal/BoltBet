@@ -83,7 +83,7 @@ export class WalletService {
     });
 
     return {
-      data:  rows.map((r) => this.toTransactionDto(r)),
+      transactions: rows.map((r) => this.toTransactionDto(r)),
       total,
       page,
       limit,

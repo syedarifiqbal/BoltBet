@@ -7,6 +7,17 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiNoContentResponse,
+  ApiUnauthorizedResponse,
+  ApiConflictResponse,
+  ApiBadRequestResponse,
+} from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { IdentityService } from './IdentityService';
 import { RegisterDto } from './dto/RegisterDto';
@@ -15,17 +26,7 @@ import { AccessTokenResponseDto } from './dto/AuthResponseDto';
 import { Public } from '../auth/decorators/PublicDecorator';
 import type { JwtPayload } from './types/IdentityTypes';
 
-/**
- * All routes here are prefixed with v1/auth by the module.
- *
- * POST /v1/auth/register  — create account, @Public
- * POST /v1/auth/login     — issue access token + set HttpOnly refresh cookie, @Public
- * POST /v1/auth/refresh   — rotate refresh token, issue new access token, @Public
- * POST /v1/auth/logout    — revoke refresh token, blacklist access token jti
- *
- * Controllers hold no business logic — they validate input, delegate to the
- * service, and shape the HTTP response. That's it.
- */
+@ApiTags('Auth')
 @Controller('v1/auth')
 export class IdentityController {
   constructor(private readonly identityService: IdentityService) {}
@@ -33,6 +34,10 @@ export class IdentityController {
   @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Register a new user account' })
+  @ApiCreatedResponse({ description: 'Account created — no body returned' })
+  @ApiConflictResponse({ description: 'Email already registered' })
+  @ApiBadRequestResponse({ description: 'Validation error' })
   async register(@Body() dto: RegisterDto): Promise<void> {
     return this.identityService.register(dto);
   }
@@ -40,6 +45,9 @@ export class IdentityController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login — returns access token; sets HttpOnly refresh cookie' })
+  @ApiOkResponse({ type: AccessTokenResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Invalid credentials' })
   async login(
     @Body() dto: LoginDto,
     @Req() req: Request,
@@ -48,14 +56,15 @@ export class IdentityController {
     return this.identityService.login(dto, req, res);
   }
 
-  /**
-   * @Public because the caller has no access token at this point —
-   * they only have the HttpOnly refresh cookie. JwtAuthGuard must not
-   * block this endpoint.
-   */
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Silent token refresh',
+    description: 'Uses the HttpOnly refresh cookie to issue a new access token. No Authorization header needed.',
+  })
+  @ApiOkResponse({ type: AccessTokenResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Refresh cookie missing, expired, or revoked' })
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -65,6 +74,10 @@ export class IdentityController {
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Logout — revokes refresh token and blacklists access token jti' })
+  @ApiNoContentResponse({ description: 'Logged out successfully' })
+  @ApiUnauthorizedResponse({ description: 'Invalid or missing access token' })
   async logout(
     @Req() req: Request & { user: JwtPayload },
     @Res({ passthrough: true }) res: Response,

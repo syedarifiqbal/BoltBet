@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import * as cookieParser from 'cookie-parser';
 import { AppModule } from './AppModule';
@@ -10,6 +11,19 @@ async function bootstrap() {
   // when SIGTERM is received. Without this, the process exits immediately,
   // potentially leaving in-flight RabbitMQ messages unacknowledged.
   app.enableShutdownHooks();
+
+  // ── Swagger ──────────────────────────────────────────────────────────────
+  // Available at /api in development only. Never expose in production.
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('BoltBet API')
+      .setDescription('High-concurrency real-time betting and odds engine')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, document);
+  }
 
   // Parse cookies — required for reading the HttpOnly refresh_token cookie.
   app.use(cookieParser());

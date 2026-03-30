@@ -9,7 +9,7 @@ import { Repository } from 'typeorm';
 import { Market } from './entities/MarketEntity';
 import { MarketStatus } from './types/MarketTypes';
 import { CreateMarketDto } from './dto/CreateMarketDto';
-import { MarketResponseDto } from './dto/MarketResponseDto';
+import { MarketResponseDto, MarketListResponseDto } from './dto/MarketResponseDto';
 
 @Injectable()
 export class MarketService {
@@ -19,6 +19,31 @@ export class MarketService {
     @InjectRepository(Market)
     private readonly marketRepo: Repository<Market>,
   ) {}
+
+  async list(
+    page: number,
+    limit: number,
+    status?: MarketStatus,
+  ): Promise<MarketListResponseDto> {
+    const where = status ? { status } : {};
+    const [rows, total] = await this.marketRepo.findAndCount({
+      where,
+      order: { createdAt: 'DESC' },
+      skip:  (page - 1) * limit,
+      take:  limit,
+    });
+    return {
+      markets: rows.map((m) => this.toDto(m)),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async getMarket(marketId: string): Promise<MarketResponseDto> {
+    const market = await this.getMarketById(marketId);
+    return this.toDto(market);
+  }
 
   async createMarket(dto: CreateMarketDto): Promise<MarketResponseDto> {
     const market = this.marketRepo.create({
