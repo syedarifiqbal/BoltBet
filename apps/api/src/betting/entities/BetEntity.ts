@@ -37,7 +37,7 @@ export class Bet {
   // Snapshot of the market name at bet placement time.
   // Stored here so the bet history shows the correct name even if the market
   // is later renamed, and so no JOIN is needed when listing bets.
-  @Column({ length: 255 })
+  @Column({ length: 255, nullable: true })
   marketName: string;
 
   @Column({ type: 'integer' })
