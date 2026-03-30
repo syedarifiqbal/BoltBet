@@ -20,6 +20,7 @@ import { IdentityModule } from './identity/IdentityModule';
 import { WalletModule } from './wallet/WalletModule';
 import { MarketModule } from './market/MarketModule';
 import { BettingModule } from './betting/BettingModule';
+import { SettlementModule } from './settlement/SettlementModule';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { BettingModule } from './betting/BettingModule';
     WalletModule,
     MarketModule,
     BettingModule,
+    SettlementModule,
   ],
   controllers: [AppController],
   providers: [AppService],

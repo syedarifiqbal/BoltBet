@@ -10,6 +10,9 @@ export const TASK_QUEUE             = 'task_queue';
 export const BET_PLACEMENT_QUEUE    = 'bet_placement';
 export const BET_PLACEMENT_DLX      = 'bet_placement_dlx';
 export const BET_PLACEMENT_DL_QUEUE = 'bet_placement_dead_letter';
+export const NOTIFICATIONS_QUEUE    = 'notifications';
+export const NOTIFICATIONS_DLX      = 'notifications_dlx';
+export const NOTIFICATIONS_DL_QUEUE = 'notifications_dead_letter';
 
 @Injectable()
 export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
@@ -20,26 +23,11 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   private consumerChannel: ChannelWrapper;
 
   constructor(
-    /**
-     * @Inject(rabbitmqConfig.KEY) injects the typed config namespace registered
-     * with registerAs('rabbitmq', ...) in src/config/rabbitmq.config.ts.
-     *
-     * ConfigType<typeof rabbitmqConfig> gives full TypeScript inference —
-     * this.config.url is typed as string, with no magic string key lookups.
-     *
-     * Never use process.env directly here. Config values belong in src/config/.
-     */
     @Inject(rabbitmqConfig.KEY)
     private readonly config: ConfigType<typeof rabbitmqConfig>,
   ) {}
 
-  /**
-   * onModuleInit runs automatically when the NestJS app finishes bootstrapping.
-   * This is the right lifecycle hook to open long-lived connections.
-   */
   onModuleInit(): void {
-    // amqp-connection-manager wraps amqplib and handles reconnections for you.
-    // If RabbitMQ restarts, it will reconnect and re-setup your channels automatically.
     this.connection = amqp.connect([this.config.url]);
 
     this.connection.on('connect', () => this.logger.log('Connected to RabbitMQ'));
@@ -48,21 +36,15 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     );
 
     // ── PUBLISHER CHANNEL ─────────────────────────────────────────────────────
-    // setup() runs once on connect (and again on every reconnect).
-    // assertQueue/assertExchange are idempotent — safe to call multiple times.
-    // durable: true → queue/exchange survives a broker restart.
     this.publisherChannel = this.connection.createChannel({
-      json: true, // automatically JSON.stringify outgoing / JSON.parse incoming
+      json: true,
       setup: async (ch: ConfirmChannel) => {
         await ch.assertQueue(TASK_QUEUE, { durable: true });
 
-        // Dead Letter Exchange — nack'd bet_placement messages land here.
-        // Exchange type 'direct' + same routing key as the source queue.
+        // bet_placement queue + DLX
         await ch.assertExchange(BET_PLACEMENT_DLX, 'direct', { durable: true });
         await ch.assertQueue(BET_PLACEMENT_DL_QUEUE, { durable: true });
         await ch.bindQueue(BET_PLACEMENT_DL_QUEUE, BET_PLACEMENT_DLX, BET_PLACEMENT_QUEUE);
-
-        // Main queue — points nack'd messages at the DLX above.
         await ch.assertQueue(BET_PLACEMENT_QUEUE, {
           durable: true,
           arguments: {
@@ -70,61 +52,99 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
             'x-dead-letter-routing-key': BET_PLACEMENT_QUEUE,
           },
         });
+
+        // notifications queue + DLX
+        await ch.assertExchange(NOTIFICATIONS_DLX, 'direct', { durable: true });
+        await ch.assertQueue(NOTIFICATIONS_DL_QUEUE, { durable: true });
+        await ch.bindQueue(NOTIFICATIONS_DL_QUEUE, NOTIFICATIONS_DLX, NOTIFICATIONS_QUEUE);
+        await ch.assertQueue(NOTIFICATIONS_QUEUE, {
+          durable: true,
+          arguments: {
+            'x-dead-letter-exchange':    NOTIFICATIONS_DLX,
+            'x-dead-letter-routing-key': NOTIFICATIONS_QUEUE,
+          },
+        });
       },
     });
 
-    // ── CONSUMER CHANNEL ──────────────────────────────────────────────────────
-    // A separate channel for consuming is best practice.
-    // Channels are lightweight; mixing publish/consume on one channel can cause
-    // head-of-line blocking.
+    // ── CONSUMER CHANNEL (task_queue demo) ────────────────────────────────────
     this.consumerChannel = this.connection.createChannel({
       json: true,
       setup: async (ch: ConfirmChannel) => {
         await ch.assertQueue(TASK_QUEUE, { durable: true });
-
-        // prefetch(1): "give me one unacked message at a time"
-        // Without this, RabbitMQ floods the consumer with all pending messages
-        // at once (round-robin), ignoring how busy it is.
         await ch.prefetch(1);
-
         await ch.consume(TASK_QUEUE, (msg: ConsumeMessage | null) => {
-          if (!msg) return; // null = consumer was cancelled by the broker
-
-          // msg.content is a raw Buffer — parse it yourself (or let json:true handle it)
+          if (!msg) return;
           const payload = JSON.parse(msg.content.toString()) as unknown;
           this.logger.log(`[Consumer] Received: ${JSON.stringify(payload)}`);
-
-          // ── Acknowledgement ──────────────────────────────────────────────
-          // ack(msg)   → "I processed this, remove it from the queue"
-          // nack(msg)  → "I failed, requeue it" (or dead-letter it)
-          // If you never ack, the message is redelivered when your app reconnects.
           ch.ack(msg);
         });
       },
     });
   }
 
-  /**
-   * Publish a JSON payload to the task queue.
-   * sendToQueue returns a Promise that resolves when the broker confirms receipt
-   * (because we're on a ConfirmChannel — publisher confirms are enabled).
-   */
+  // ── Publish helpers ────────────────────────────────────────────────────────
+
   async publish(data: object): Promise<void> {
-    await this.publisherChannel.sendToQueue(TASK_QUEUE, data, {
-      persistent: true, // messages survive a broker restart (requires durable queue)
-    });
+    await this.publisherChannel.sendToQueue(TASK_QUEUE, data, { persistent: true });
     this.logger.log(`[Publisher] Sent: ${JSON.stringify(data)}`);
   }
 
-  /**
-   * Publish a bet placement payload to the bet_placement queue.
-   * The Settlement Worker consumes from this queue.
-   */
   async publishBetPlacement(data: object): Promise<void> {
-    await this.publisherChannel.sendToQueue(BET_PLACEMENT_QUEUE, data, {
-      persistent: true,
-    });
+    await this.publisherChannel.sendToQueue(BET_PLACEMENT_QUEUE, data, { persistent: true });
     this.logger.log(`[bet_placement] Published: ${JSON.stringify(data)}`);
+  }
+
+  async publishNotification(data: object): Promise<void> {
+    await this.publisherChannel.sendToQueue(NOTIFICATIONS_QUEUE, data, { persistent: true });
+    this.logger.log(`[notifications] Published: ${JSON.stringify(data)}`);
+  }
+
+  /**
+   * Creates a dedicated consumer channel for the bet_placement queue.
+   * Called by SettlementWorker during onModuleInit.
+   *
+   * A dedicated channel per logical consumer keeps head-of-line blocking isolated —
+   * a slow settlement does not block the task_queue consumer.
+   */
+  createBetPlacementConsumer(
+    handler: (payload: unknown, ack: () => void, nack: (requeue: boolean) => void) => Promise<void>,
+  ): ChannelWrapper {
+    return this.connection.createChannel({
+      json: true,
+      setup: async (ch: ConfirmChannel) => {
+        // Mirror the same queue declaration so the consumer channel is ready
+        // even if it reconnects before the publisher channel re-runs its setup.
+        await ch.assertExchange(BET_PLACEMENT_DLX, 'direct', { durable: true });
+        await ch.assertQueue(BET_PLACEMENT_DL_QUEUE, { durable: true });
+        await ch.bindQueue(BET_PLACEMENT_DL_QUEUE, BET_PLACEMENT_DLX, BET_PLACEMENT_QUEUE);
+        await ch.assertQueue(BET_PLACEMENT_QUEUE, {
+          durable: true,
+          arguments: {
+            'x-dead-letter-exchange':    BET_PLACEMENT_DLX,
+            'x-dead-letter-routing-key': BET_PLACEMENT_QUEUE,
+          },
+        });
+
+        // prefetch(1): process one message at a time — critical for financial ops.
+        // Settlement involves a DB write + wallet credit; we don't want to
+        // buffer more than we can atomically process.
+        await ch.prefetch(1);
+
+        await ch.consume(BET_PLACEMENT_QUEUE, (msg: ConsumeMessage | null) => {
+          if (!msg) return;
+          const payload = JSON.parse(msg.content.toString()) as unknown;
+          handler(
+            payload,
+            () => ch.ack(msg),
+            (requeue: boolean) => ch.nack(msg, false, requeue),
+          ).catch(() => {
+            // Ensure nack always fires even if the handler throws synchronously.
+            ch.nack(msg, false, false);
+          });
+        });
+      },
+    });
   }
 
   async onModuleDestroy(): Promise<void> {

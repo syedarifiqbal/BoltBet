@@ -20,6 +20,13 @@ export const ALLOWED_TRANSITIONS: Record<BetStatus, BetStatus[]> = {
   [BetStatus.CANCELLED]: [],
 };
 
+/** States from which no further transitions are possible */
+export const TERMINAL_STATES = new Set<BetStatus>([
+  BetStatus.SETTLED,
+  BetStatus.VOID,
+  BetStatus.CANCELLED,
+]);
+
 /** Payload published to the bet_placement RabbitMQ queue */
 export interface BetPlacementPayload {
   betId:       string;

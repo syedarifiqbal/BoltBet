@@ -6,6 +6,11 @@ import { AppModule } from './AppModule';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Required for graceful shutdown — triggers OnModuleDestroy on all providers
+  // when SIGTERM is received. Without this, the process exits immediately,
+  // potentially leaving in-flight RabbitMQ messages unacknowledged.
+  app.enableShutdownHooks();
+
   // Parse cookies — required for reading the HttpOnly refresh_token cookie.
   app.use(cookieParser());
 

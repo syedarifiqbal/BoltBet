@@ -8,7 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Bet } from './entities/BetEntity';
-import { BetStatus, BetPlacementPayload, ALLOWED_TRANSITIONS } from './types/BettingTypes';
+import { BetStatus, BetPlacementPayload, ALLOWED_TRANSITIONS, TERMINAL_STATES } from './types/BettingTypes';
 import { PlaceBetDto } from './dto/PlaceBetDto';
 import { BetResponseDto, BetListResponseDto } from './dto/BetResponseDto';
 import { MarketService } from '../market/MarketService';
@@ -171,6 +171,16 @@ export class BettingService {
 
     await this.betRepo.update({ id: betId }, { status: newStatus });
     this.logger.log(`Bet ${betId} status: ${bet.status} → ${newStatus}`);
+  }
+
+  /**
+   * Returns true if the bet is in a terminal state (SETTLED, VOID, CANCELLED).
+   * Used by the Settlement Worker to silently ack duplicate deliveries.
+   */
+  async isTerminalState(betId: string): Promise<boolean> {
+    const bet = await this.betRepo.findOne({ where: { id: betId } });
+    if (!bet) return false;
+    return TERMINAL_STATES.has(bet.status);
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
