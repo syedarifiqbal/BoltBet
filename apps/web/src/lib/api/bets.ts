@@ -5,6 +5,7 @@ export type BetStatus = 'PENDING' | 'ACCEPTED' | 'SETTLED' | 'VOID' | 'CANCELLED
 export interface BetResponse {
   id:            string;
   marketId:      string;
+  marketName:    string;
   oddsInt:       number;
   stakeCents:    number;
   payoutCents:   number;

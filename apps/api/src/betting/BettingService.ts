@@ -93,6 +93,7 @@ export class BettingService {
       this.betRepo.create({
         userId,
         marketId:    dto.marketId,
+        marketName:  market.name,
         oddsInt:     market.oddsInt,
         stakeCents:  dto.stakeCents,
         payoutCents,
@@ -189,6 +190,7 @@ export class BettingService {
     return {
       id:            bet.id,
       marketId:      bet.marketId,
+      marketName:    bet.marketName,
       oddsInt:       bet.oddsInt,
       oddsDisplay:   this.formatOdds(bet.oddsInt),
       stakeCents:    bet.stakeCents,

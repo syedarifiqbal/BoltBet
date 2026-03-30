@@ -56,7 +56,7 @@ export default function BetDetailPage({ params }: { params: Promise<{ id: string
           <Badge variant={STATUS_VARIANT[bet.status] ?? 'outline'}>{bet.status}</Badge>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Row label="Market" value={bet.marketId} />
+          <Row label="Market" value={bet.marketName} />
           <Row label="Odds" value={formatOdds(bet.oddsInt)} />
           <Row label="Stake" value={formatCents(bet.stakeCents)} />
           <Row label="Potential payout" value={formatCents(bet.payoutCents)} />
