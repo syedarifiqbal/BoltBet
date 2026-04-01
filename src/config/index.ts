@@ -14,10 +14,10 @@
  *
  *   // this.config.url  ← fully typed, no magic strings
  */
-export { default as appConfig } from './app.config';
-export { default as rabbitmqConfig } from './rabbitmq.config';
-export { default as databaseConfig } from './database.config';
-export { default as redisConfig } from './redis.config';
-export { default as jwtConfig } from './jwt.config';
-export { default as securityConfig } from './security.config';
-export { validationSchema, validationOptions } from './env.validation';
+export { default as appConfig } from './AppConfig';
+export { default as rabbitmqConfig } from './RabbitmqConfig';
+export { default as databaseConfig } from './DatabaseConfig';
+export { default as redisConfig } from './RedisConfig';
+export { default as jwtConfig } from './JwtConfig';
+export { default as securityConfig } from './SecurityConfig';
+export { validationSchema, validationOptions } from './EnvValidation';

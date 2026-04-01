@@ -1,7 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { rabbitmqConfig } from '../config';
-import { RabbitMQService } from './rabbitmq.service';
+import { RabbitMQService } from './RabbitmqService';
 
 // @Global() makes RabbitMQService injectable everywhere without needing to
 // import RabbitMQModule in every feature module.

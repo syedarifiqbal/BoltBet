@@ -6,7 +6,7 @@ import {
   UpdateDateColumn,
   DeleteDateColumn,
 } from 'typeorm';
-import { Role } from '../types/identity.types';
+import { Role } from '../types/IdentityTypes';
 
 @Entity('users')
 export class User {

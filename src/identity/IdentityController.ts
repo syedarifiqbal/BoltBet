@@ -8,12 +8,12 @@ import {
   Res,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { IdentityService } from './identity.service';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
-import { AccessTokenResponseDto } from './dto/authResponse.dto';
-import { Public } from '../auth/decorators/public.decorator';
-import type { JwtPayload } from './types/identity.types';
+import { IdentityService } from './IdentityService';
+import { RegisterDto } from './dto/RegisterDto';
+import { LoginDto } from './dto/LoginDto';
+import { AccessTokenResponseDto } from './dto/AuthResponseDto';
+import { Public } from '../auth/decorators/PublicDecorator';
+import type { JwtPayload } from './types/IdentityTypes';
 
 /**
  * All routes here are prefixed with v1/auth by the module.

@@ -11,14 +11,14 @@ import {
   DefaultValuePipe,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { WalletService } from './wallet.service';
-import { DepositDto } from './dto/deposit.dto';
-import { BalanceResponseDto } from './dto/balanceResponse.dto';
+import { WalletService } from './WalletService';
+import { DepositDto } from './dto/DepositDto';
+import { BalanceResponseDto } from './dto/BalanceResponseDto';
 import {
   TransactionResponseDto,
   TransactionListResponseDto,
-} from './dto/transactionResponse.dto';
-import type { JwtPayload } from '../identity/types/identity.types';
+} from './dto/TransactionResponseDto';
+import type { JwtPayload } from '../identity/types/IdentityTypes';
 
 /**
  * All routes require a valid JWT (JwtAuthGuard is global).

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { RabbitMQService } from './rabbitmq/rabbitmq.service';
+import { AppController } from './AppController';
+import { AppService } from './AppService';
+import { RabbitMQService } from './rabbitmq/RabbitmqService';
 
 describe('AppController', () => {
   let appController: AppController;

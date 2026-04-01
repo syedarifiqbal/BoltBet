@@ -14,14 +14,14 @@ import { Response, Request } from 'express';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
-import { User } from './entities/user.entity';
-import { RefreshToken } from './entities/refreshToken.entity';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
-import { AccessTokenResponseDto } from './dto/authResponse.dto';
-import { Role, ROLE_TIER, JwtPayload } from './types/identity.types';
+import { User } from './entities/UserEntity';
+import { RefreshToken } from './entities/RefreshTokenEntity';
+import { RegisterDto } from './dto/RegisterDto';
+import { LoginDto } from './dto/LoginDto';
+import { AccessTokenResponseDto } from './dto/AuthResponseDto';
+import { Role, ROLE_TIER, JwtPayload } from './types/IdentityTypes';
 import { jwtConfig, securityConfig } from '../config';
-import { RedisService } from '../redis/redis.service';
+import { RedisService } from '../redis/RedisService';
 
 const BCRYPT_ROUNDS_PASSWORD = 12;
 const BCRYPT_ROUNDS_TOKEN    = 10;

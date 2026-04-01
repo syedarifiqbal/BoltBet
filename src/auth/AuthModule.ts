@@ -3,8 +3,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 import { jwtConfig } from '../config';
-import { JwtAuthGuard } from './guards/jwtAuth.guard';
-import { RolesGuard } from './guards/roles.guard';
+import { JwtAuthGuard } from './guards/JwtAuthGuard';
+import { RolesGuard } from './guards/RolesGuard';
 
 /**
  * Global auth module — imported once in AppModule.

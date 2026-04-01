@@ -5,7 +5,7 @@ import {
   Index,
   CreateDateColumn,
 } from 'typeorm';
-import { TransactionType } from '../types/wallet.types';
+import { TransactionType } from '../types/WalletTypes';
 
 /**
  * Immutable audit trail — rows are never updated or deleted.

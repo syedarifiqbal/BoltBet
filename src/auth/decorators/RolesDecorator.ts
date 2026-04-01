@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
-import { Role } from '../../identity/types/identity.types';
+import { Role } from '../../identity/types/IdentityTypes';
 
 /**
  * Declare which roles are allowed to call a route.

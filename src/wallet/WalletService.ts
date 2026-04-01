@@ -7,15 +7,15 @@ import {
 } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { Wallet } from './entities/wallet.entity';
-import { WalletTransaction } from './entities/walletTransaction.entity';
-import { TransactionType } from './types/wallet.types';
-import { DepositDto } from './dto/deposit.dto';
-import { BalanceResponseDto } from './dto/balanceResponse.dto';
+import { Wallet } from './entities/WalletEntity';
+import { WalletTransaction } from './entities/WalletTransactionEntity';
+import { TransactionType } from './types/WalletTypes';
+import { DepositDto } from './dto/DepositDto';
+import { BalanceResponseDto } from './dto/BalanceResponseDto';
 import {
   TransactionResponseDto,
   TransactionListResponseDto,
-} from './dto/transactionResponse.dto';
+} from './dto/TransactionResponseDto';
 
 @Injectable()
 export class WalletService {

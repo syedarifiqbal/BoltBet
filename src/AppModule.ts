@@ -10,14 +10,14 @@ import {
   validationSchema,
   validationOptions,
 } from './config';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { RabbitMQModule } from './rabbitmq/rabbitmq.module';
-import { RedisModule } from './redis/redis.module';
-import { DatabaseModule } from './database/database.module';
-import { AuthModule } from './auth/auth.module';
-import { IdentityModule } from './identity/identity.module';
-import { WalletModule } from './wallet/wallet.module';
+import { AppController } from './AppController';
+import { AppService } from './AppService';
+import { RabbitMQModule } from './rabbitmq/RabbitmqModule';
+import { RedisModule } from './redis/RedisModule';
+import { DatabaseModule } from './database/DatabaseModule';
+import { AuthModule } from './auth/AuthModule';
+import { IdentityModule } from './identity/IdentityModule';
+import { WalletModule } from './wallet/WalletModule';
 
 @Module({
   imports: [

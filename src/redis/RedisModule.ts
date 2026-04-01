@@ -1,7 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { redisConfig } from '../config';
-import { RedisService } from './redis.service';
+import { RedisService } from './RedisService';
 
 /**
  * Global Redis module — imported once in AppModule, available everywhere.

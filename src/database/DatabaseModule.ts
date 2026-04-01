@@ -2,8 +2,8 @@ import { Global, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigType } from '@nestjs/config';
 import { databaseConfig, appConfig } from '../config';
-import type { DatabaseConfig } from '../config/database.config';
-import type { AppConfig } from '../config/app.config';
+import type { DatabaseConfig } from '../config/DatabaseConfig';
+import type { AppConfig } from '../config/AppConfig';
 
 /**
  * Global TypeORM module — two named data sources.

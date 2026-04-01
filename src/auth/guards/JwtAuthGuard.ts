@@ -9,10 +9,10 @@ import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
 import { ConfigType } from '@nestjs/config';
 import { Request } from 'express';
-import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { IS_PUBLIC_KEY } from '../decorators/PublicDecorator';
 import { jwtConfig } from '../../config';
-import { RedisService } from '../../redis/redis.service';
-import type { JwtPayload } from '../../identity/types/identity.types';
+import { RedisService } from '../../redis/RedisService';
+import type { JwtPayload } from '../../identity/types/IdentityTypes';
 
 /**
  * Applied globally via APP_GUARD in AuthModule.

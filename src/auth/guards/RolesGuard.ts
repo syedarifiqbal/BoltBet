@@ -5,8 +5,8 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ROLES_KEY } from '../decorators/roles.decorator';
-import type { Role, JwtPayload } from '../../identity/types/identity.types';
+import { ROLES_KEY } from '../decorators/RolesDecorator';
+import type { Role, JwtPayload } from '../../identity/types/IdentityTypes';
 
 /**
  * Applied globally via APP_GUARD in AuthModule, after JwtAuthGuard.

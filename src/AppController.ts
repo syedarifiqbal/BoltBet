@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
-import { AppService } from './app.service';
-import { RabbitMQService } from './rabbitmq/rabbitmq.service';
+import { AppService } from './AppService';
+import { RabbitMQService } from './rabbitmq/RabbitmqService';
 
 @Controller()
 export class AppController {

@@ -1,4 +1,4 @@
-import { TransactionType } from '../types/wallet.types';
+import { TransactionType } from '../types/WalletTypes';
 
 export class TransactionResponseDto {
   id: string;

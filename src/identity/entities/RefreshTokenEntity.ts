@@ -7,7 +7,7 @@ import {
   CreateDateColumn,
   Index,
 } from 'typeorm';
-import { User } from './user.entity';
+import { User } from './UserEntity';
 
 /**
  * Stores bcrypt-hashed refresh tokens.
