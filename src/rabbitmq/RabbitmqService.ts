@@ -5,8 +5,11 @@ import { IAmqpConnectionManager } from 'amqp-connection-manager/dist/types/AmqpC
 import { ConfirmChannel, ConsumeMessage } from 'amqplib';
 import { rabbitmqConfig } from '../config';
 
-// Queue name is a constant — both publisher and consumer must use the same name.
-export const TASK_QUEUE = 'task_queue';
+// Queue name constants — both publisher and consumer must use the same name.
+export const TASK_QUEUE             = 'task_queue';
+export const BET_PLACEMENT_QUEUE    = 'bet_placement';
+export const BET_PLACEMENT_DLX      = 'bet_placement_dlx';
+export const BET_PLACEMENT_DL_QUEUE = 'bet_placement_dead_letter';
 
 @Injectable()
 export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
@@ -46,11 +49,28 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
 
     // ── PUBLISHER CHANNEL ─────────────────────────────────────────────────────
     // setup() runs once on connect (and again on every reconnect).
-    // assertQueue is idempotent — safe to call multiple times.
-    // durable: true → queue survives a broker restart.
+    // assertQueue/assertExchange are idempotent — safe to call multiple times.
+    // durable: true → queue/exchange survives a broker restart.
     this.publisherChannel = this.connection.createChannel({
       json: true, // automatically JSON.stringify outgoing / JSON.parse incoming
-      setup: (ch: ConfirmChannel) => ch.assertQueue(TASK_QUEUE, { durable: true }),
+      setup: async (ch: ConfirmChannel) => {
+        await ch.assertQueue(TASK_QUEUE, { durable: true });
+
+        // Dead Letter Exchange — nack'd bet_placement messages land here.
+        // Exchange type 'direct' + same routing key as the source queue.
+        await ch.assertExchange(BET_PLACEMENT_DLX, 'direct', { durable: true });
+        await ch.assertQueue(BET_PLACEMENT_DL_QUEUE, { durable: true });
+        await ch.bindQueue(BET_PLACEMENT_DL_QUEUE, BET_PLACEMENT_DLX, BET_PLACEMENT_QUEUE);
+
+        // Main queue — points nack'd messages at the DLX above.
+        await ch.assertQueue(BET_PLACEMENT_QUEUE, {
+          durable: true,
+          arguments: {
+            'x-dead-letter-exchange':    BET_PLACEMENT_DLX,
+            'x-dead-letter-routing-key': BET_PLACEMENT_QUEUE,
+          },
+        });
+      },
     });
 
     // ── CONSUMER CHANNEL ──────────────────────────────────────────────────────
@@ -94,6 +114,17 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
       persistent: true, // messages survive a broker restart (requires durable queue)
     });
     this.logger.log(`[Publisher] Sent: ${JSON.stringify(data)}`);
+  }
+
+  /**
+   * Publish a bet placement payload to the bet_placement queue.
+   * The Settlement Worker consumes from this queue.
+   */
+  async publishBetPlacement(data: object): Promise<void> {
+    await this.publisherChannel.sendToQueue(BET_PLACEMENT_QUEUE, data, {
+      persistent: true,
+    });
+    this.logger.log(`[bet_placement] Published: ${JSON.stringify(data)}`);
   }
 
   async onModuleDestroy(): Promise<void> {

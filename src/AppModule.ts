@@ -18,6 +18,8 @@ import { DatabaseModule } from './database/DatabaseModule';
 import { AuthModule } from './auth/AuthModule';
 import { IdentityModule } from './identity/IdentityModule';
 import { WalletModule } from './wallet/WalletModule';
+import { MarketModule } from './market/MarketModule';
+import { BettingModule } from './betting/BettingModule';
 
 @Module({
   imports: [
@@ -49,6 +51,8 @@ import { WalletModule } from './wallet/WalletModule';
     RabbitMQModule,
     IdentityModule,
     WalletModule,
+    MarketModule,
+    BettingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
